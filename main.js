@@ -1,9 +1,9 @@
 import kaplay from "https://unpkg.com/kaplay@latest/dist/kaplay.mjs";
 import { Chess } from "https://unpkg.com/chess.js@latest/dist/esm/chess.js";
 
-// ======================
-// Init
-// ======================
+// =====================================================
+// INIT
+// =====================================================
 
 kaplay({
   width: 880,
@@ -17,15 +17,20 @@ const TILE = 80;
 const BOARD_SIZE = 640;
 const PANEL_X = 660;
 
+// =====================================================
+// STATE
+// =====================================================
+
 let selectedSquare = null;
 let pieces = {};
 let highlights = [];
 let moveTexts = [];
 let checkHighlight = null;
+let notificationTimer = null;
 
-// ======================
-// Helpers
-// ======================
+// =====================================================
+// HELPERS
+// =====================================================
 
 function squareToCoord(square) {
   const file = square.charCodeAt(0) - 97;
@@ -48,9 +53,9 @@ function pieceChar(piece) {
     : map[piece.type];
 }
 
-// ======================
-// Board
-// ======================
+// =====================================================
+// BOARD
+// =====================================================
 
 for (let y = 0; y < 8; y++) {
   for (let x = 0; x < 8; x++) {
@@ -63,9 +68,29 @@ for (let y = 0; y < 8; y++) {
   }
 }
 
-// ======================
-// Pieces
-// ======================
+// Coordenadas A–H
+for (let x = 0; x < 8; x++) {
+  add([
+    text(String.fromCharCode(65 + x), { size: 14 }),
+    pos(x * TILE + TILE / 2, BOARD_SIZE - 14),
+    anchor("center"),
+    color(rgb(200,200,200)),
+  ]);
+}
+
+// Coordenadas 8–1
+for (let y = 0; y < 8; y++) {
+  add([
+    text(String(8 - y), { size: 14 }),
+    pos(8, y * TILE + TILE / 2),
+    anchor("center"),
+    color(rgb(200,200,200)),
+  ]);
+}
+
+// =====================================================
+// PIECES
+// =====================================================
 
 function drawPieces(animatedMove = null) {
   Object.values(pieces).forEach(destroy);
@@ -110,9 +135,9 @@ function drawPieces(animatedMove = null) {
   });
 }
 
-// ======================
-// Highlight logic
-// ======================
+// =====================================================
+// HIGHLIGHTS
+// =====================================================
 
 function clearHighlights() {
   highlights.forEach(destroy);
@@ -164,9 +189,9 @@ function highlightKingInCheck() {
   }
 }
 
-// ======================
-// Side panel (turn, notifications, moves)
-// ======================
+// =====================================================
+// PANEL + NOTIFICATIONS
+// =====================================================
 
 const turnText = add([
   text("Turno: Blancas", { size: 20 }),
@@ -178,8 +203,6 @@ const notificationText = add([
   pos(PANEL_X, 50),
   color(rgb(255,180,80)),
 ]);
-
-let notificationTimer = null;
 
 function notify(msg, col = rgb(255,180,80), duration = 2) {
   notificationText.text = msg;
@@ -212,18 +235,107 @@ function updateMoveList() {
   });
 }
 
-// ======================
-// Initial render
-// ======================
+// =====================================================
+// VOICE
+// =====================================================
+
+const SpeechRecognition =
+  window.SpeechRecognition || window.webkitSpeechRecognition;
+
+let recognizer = null;
+
+if (SpeechRecognition) {
+  recognizer = new SpeechRecognition();
+  recognizer.lang = "es-ES";
+  recognizer.continuous = false;
+  recognizer.interimResults = false;
+}
+
+function parseVoiceCommand(text) {
+  text = text.toLowerCase().trim();
+
+  const pieceMap = {
+    peon: "p", peón: "p",
+    caballo: "n",
+    alfil: "b",
+    torre: "r",
+    dama: "q", reina: "q",
+    rey: "k",
+  };
+
+  const parts = text.split(" ");
+  if (parts.length < 2) return null;
+
+  const pieceType = pieceMap[parts[0]];
+  const square = parts[1];
+
+  if (!pieceType) return null;
+  if (!/^[a-h][1-8]$/.test(square)) return null;
+
+  return { pieceType, square };
+}
+
+function tryMoveByVoice(pieceType, targetSquare) {
+  const candidates = [];
+
+  chess.board().forEach((row, y) => {
+    row.forEach((p, x) => {
+      if (!p) return;
+      if (p.type !== pieceType) return;
+      if (p.color !== chess.turn()) return;
+
+      const from = String.fromCharCode(97 + x) + (8 - y);
+
+      chess.moves({ square: from, verbose: true })
+        .forEach((m) => {
+          if (m.to === targetSquare) {
+            candidates.push({ from });
+          }
+        });
+    });
+  });
+
+  if (candidates.length === 0) {
+    notify("Movimiento por voz inválido", rgb(255,120,80));
+    return;
+  }
+
+  if (candidates.length > 1) {
+    notify("Movimiento ambiguo", rgb(255,180,80));
+    return;
+  }
+
+  let move;
+  try {
+    move = chess.move({
+      from: candidates[0].from,
+      to: targetSquare,
+      promotion: "q",
+    });
+  } catch {
+    notify("Movimiento inválido", rgb(255,120,80));
+    return;
+  }
+
+  drawPieces(move);
+  updateTurn();
+  updateMoveList();
+  highlightKingInCheck();
+
+  if (chess.isCheckmate()) {
+    notify("♚ Jaque mate ♚", rgb(255,80,80), 4);
+  } else if (chess.isCheck()) {
+    notify("⚠️ Jaque", rgb(255,120,80));
+  }
+}
+
+// =====================================================
+// INPUT
+// =====================================================
 
 drawPieces();
 updateTurn();
 updateMoveList();
-highlightKingInCheck();
-
-// ======================
-// Input
-// ======================
 
 onClick(() => {
   const square = coordToSquare(mousePos());
@@ -240,15 +352,14 @@ onClick(() => {
     return;
   }
 
-  let move = null;
-
+  let move;
   try {
     move = chess.move({
       from: selectedSquare,
       to: square,
       promotion: "q",
     });
-  } catch (e) {
+  } catch {
     notify("Movimiento inválido", rgb(255,120,80));
     selectedSquare = null;
     clearHighlights();
@@ -268,4 +379,31 @@ onClick(() => {
   } else if (chess.isCheck()) {
     notify("⚠️ Jaque", rgb(255,120,80));
   }
+});
+
+onKeyPress("v", () => {
+  if (!recognizer) {
+    notify("Voz no disponible", rgb(255,120,80));
+    return;
+  }
+
+  notify("🎙️ Escuchando...", rgb(180,220,255));
+  recognizer.start();
+
+  recognizer.onresult = (e) => {
+    const text = e.results[0][0].transcript;
+    notify(`🗣️ ${text}`, rgb(180,220,255));
+
+    const parsed = parseVoiceCommand(text);
+    if (!parsed) {
+      notify("Comando no reconocido", rgb(255,120,80));
+      return;
+    }
+
+    tryMoveByVoice(parsed.pieceType, parsed.square);
+  };
+
+  recognizer.onerror = () => {
+    notify("Error de reconocimiento", rgb(255,120,80));
+  };
 });
