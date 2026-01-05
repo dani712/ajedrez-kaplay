@@ -27,20 +27,6 @@ let checkHighlight = null;
 // Helpers
 // ======================
 
-let notificationTimer = null;
-
-function notify(msg, col = rgb(255, 200, 50), duration = 2) {
-  notificationText.text = msg;
-  notificationText.color = col;
-
-  if (notificationTimer) notificationTimer.cancel();
-
-  notificationTimer = wait(duration, () => {
-    notificationText.text = "";
-    notificationTimer = null;
-  });
-}
-
 function squareToCoord(square) {
   const file = square.charCodeAt(0) - 97;
   const rank = 8 - Number(square[1]);
@@ -99,14 +85,13 @@ function drawPieces(animatedMove = null) {
 
       const p = add([
         text(pieceChar(piece), { size: 48 }),
-        color(isWhite ? rgb(245, 245, 245) : rgb(30, 30, 30)),
-        outline(2, isWhite ? rgb(20, 20, 20) : rgb(240, 240, 240)),
+        color(isWhite ? rgb(245,245,245) : rgb(30,30,30)),
+        outline(2, isWhite ? rgb(20,20,20) : rgb(240,240,240)),
         pos(target),
         anchor("center"),
         area(),
       ]);
 
-      // animación si corresponde
       if (animatedMove && animatedMove.to === square) {
         const from = squareToCoord(animatedMove.from);
         p.pos = vec2(from.x + TILE / 2, from.y + TILE / 2);
@@ -115,13 +100,10 @@ function drawPieces(animatedMove = null) {
           p.pos,
           target,
           0.15,
-          (v) => {
-            p.pos = v;
-          },
+          (v) => p.pos = v,
           easings.easeOutQuad
         );
       }
-
 
       pieces[square] = p;
     });
@@ -176,14 +158,14 @@ function highlightKingInCheck() {
     checkHighlight = add([
       rect(TILE, TILE),
       pos(c),
-      color(rgb(255, 0, 0)),
+      color(rgb(255,0,0)),
       opacity(0.4),
     ]);
   }
 }
 
 // ======================
-// Side panel (turn + moves)
+// Side panel (turn, notifications, moves)
 // ======================
 
 const turnText = add([
@@ -194,8 +176,22 @@ const turnText = add([
 const notificationText = add([
   text("", { size: 16 }),
   pos(PANEL_X, 50),
-  color(rgb(255, 200, 50)),
+  color(rgb(255,180,80)),
 ]);
+
+let notificationTimer = null;
+
+function notify(msg, col = rgb(255,180,80), duration = 2) {
+  notificationText.text = msg;
+  notificationText.color = col;
+
+  if (notificationTimer) notificationTimer.cancel();
+
+  notificationTimer = wait(duration, () => {
+    notificationText.text = "";
+    notificationTimer = null;
+  });
+}
 
 function updateTurn() {
   turnText.text = `Turno: ${chess.turn() === "w" ? "Blancas" : "Negras"}`;
@@ -210,7 +206,7 @@ function updateMoveList() {
     moveTexts.push(
       add([
         text(line, { size: 16 }),
-        pos(PANEL_X, 60 + i * 18),
+        pos(PANEL_X, 80 + i * 18),
       ])
     );
   });
@@ -244,14 +240,16 @@ onClick(() => {
     return;
   }
 
-  const move = chess.move({
-    from: selectedSquare,
-    to: square,
-    promotion: "q",
-  });
+  let move = null;
 
-  if (!move) {
-    notify("Movimiento inválido", rgb(255, 150, 50));
+  try {
+    move = chess.move({
+      from: selectedSquare,
+      to: square,
+      promotion: "q",
+    });
+  } catch (e) {
+    notify("Movimiento inválido", rgb(255,120,80));
     selectedSquare = null;
     clearHighlights();
     return;
@@ -266,6 +264,8 @@ onClick(() => {
   highlightKingInCheck();
 
   if (chess.isCheckmate()) {
-    alert("♚ JAQUE MATE ♚");
+    notify("♚ Jaque mate ♚", rgb(255,80,80), 4);
+  } else if (chess.isCheck()) {
+    notify("⚠️ Jaque", rgb(255,120,80));
   }
 });
