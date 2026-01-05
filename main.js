@@ -107,15 +107,6 @@ function drawPieces(animatedMove = null) {
 }
 
 // ======================
-// Initial render
-// ======================
-
-drawPieces();
-updateTurn();
-updateMoveList();
-highlightKingInCheck();
-
-// ======================
 // Highlight logic
 // ======================
 
@@ -196,6 +187,15 @@ function updateMoveList() {
     );
   });
 }
+
+// ======================
+// Initial render
+// ======================
+
+drawPieces();
+updateTurn();
+updateMoveList();
+highlightKingInCheck();
 
 // ======================
 // Input
