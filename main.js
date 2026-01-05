@@ -156,9 +156,9 @@ onClick(() => {
   drawPieces();
 
   // Estado del juego
-  if (chess.in_checkmate()) {
-    alert("♚ JAQUE MATE ♚");
-  } else if (chess.in_check()) {
-    alert("⚠️ JAQUE");
-  }
+  if (chess.isCheckmate()) {
+  alert("♚ JAQUE MATE ♚");
+} else if (chess.isCheck()) {
+  alert("⚠️ JAQUE");
+}
 });
