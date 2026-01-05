@@ -27,6 +27,20 @@ let checkHighlight = null;
 // Helpers
 // ======================
 
+let notificationTimer = null;
+
+function notify(msg, col = rgb(255, 200, 50), duration = 2) {
+  notificationText.text = msg;
+  notificationText.color = col;
+
+  if (notificationTimer) notificationTimer.cancel();
+
+  notificationTimer = wait(duration, () => {
+    notificationText.text = "";
+    notificationTimer = null;
+  });
+}
+
 function squareToCoord(square) {
   const file = square.charCodeAt(0) - 97;
   const rank = 8 - Number(square[1]);
@@ -84,11 +98,9 @@ function drawPieces(animatedMove = null) {
       const isWhite = piece.color === "w";
 
       const p = add([
-        text(pieceChar(piece), {
-          size: 48,
-          color: isWhite ? rgb(255, 255, 255) : rgb(0, 0, 0),
-        }),
-        outline(2, isWhite ? rgb(0, 0, 0) : rgb(255, 255, 255)),
+        text(pieceChar(piece), { size: 48 }),
+        color(isWhite ? rgb(245, 245, 245) : rgb(30, 30, 30)),
+        outline(2, isWhite ? rgb(20, 20, 20) : rgb(240, 240, 240)),
         pos(target),
         anchor("center"),
         area(),
@@ -179,6 +191,12 @@ const turnText = add([
   pos(PANEL_X, 20),
 ]);
 
+const notificationText = add([
+  text("", { size: 16 }),
+  pos(PANEL_X, 50),
+  color(rgb(255, 200, 50)),
+]);
+
 function updateTurn() {
   turnText.text = `Turno: ${chess.turn() === "w" ? "Blancas" : "Negras"}`;
 }
@@ -232,10 +250,15 @@ onClick(() => {
     promotion: "q",
   });
 
+  if (!move) {
+    notify("Movimiento inválido", rgb(255, 150, 50));
+    selectedSquare = null;
+    clearHighlights();
+    return;
+  }
+
   selectedSquare = null;
   clearHighlights();
-
-  if (!move) return;
 
   drawPieces(move);
   updateTurn();
