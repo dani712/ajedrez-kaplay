@@ -81,8 +81,14 @@ function drawPieces(animatedMove = null) {
         y * TILE + TILE / 2
       );
 
+      const isWhite = piece.color === "w";
+
       const p = add([
-        text(pieceChar(piece), { size: 48 }),
+        text(pieceChar(piece), {
+          size: 48,
+          color: isWhite ? rgb(255, 255, 255) : rgb(0, 0, 0),
+        }),
+        outline(2, isWhite ? rgb(0, 0, 0) : rgb(255, 255, 255)),
         pos(target),
         anchor("center"),
         area(),
@@ -92,14 +98,18 @@ function drawPieces(animatedMove = null) {
       if (animatedMove && animatedMove.to === square) {
         const from = squareToCoord(animatedMove.from);
         p.pos = vec2(from.x + TILE / 2, from.y + TILE / 2);
-        p.tween(
-          "pos",
+
+        tween(
+          p.pos,
           target,
           0.15,
-          (v) => (p.pos = v),
+          (v) => {
+            p.pos = v;
+          },
           easings.easeOutQuad
         );
       }
+
 
       pieces[square] = p;
     });
